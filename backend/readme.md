@@ -45,8 +45,7 @@ d----           2025/4/16    21:19                utils
 
     Set method to POST in postman, add a raw body and a header application/json
     Successfully registered
-    ![Postman Register Successfully](tests/register success in postman.png)
+    ![Postman Register Successfully](tests/postman.png)
 
     Data successfully write in MySQL:
-    ![Workbench Query](tests/register result found in MySQL.png)
-
+    ![Workbench Query](tests/MySQL.png)

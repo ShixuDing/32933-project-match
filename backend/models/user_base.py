@@ -13,4 +13,3 @@ class UserBase(Base):
 
     def register(self): pass
     def login(self): pass
-    def update_project_description(self): pass

@@ -14,6 +14,7 @@ class Project(Base):
     group_or_individual = Column(String(100))
     project_start_time = Column(DateTime)
     project_end_time = Column(DateTime)
+    project_grade = Column(String(10))
 
     supervisor_id = Column(Integer, ForeignKey("supervisors.id"))
     supervisor = relationship("Supervisor", back_populates="projects")

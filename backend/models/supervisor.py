@@ -20,5 +20,5 @@ class Supervisor(UserBase):
     def remove_or_end_project(self):
         pass
 
-    def grade_project(self):
+    def score_project(self):
         pass

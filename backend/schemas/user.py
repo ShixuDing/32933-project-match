@@ -17,3 +17,7 @@ class UserCreate(BaseModel):
         if not re.match(base_pattern, v.lower()):
             raise ValueError("Email must match: firstname.lastname@student.uts.edu.au or firstname.lastname@uts.edu.au")
         return v.lower()
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str

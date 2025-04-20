@@ -13,6 +13,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Access token required")
 
     return {
+        "id": user_data["id"],
         "email": user_data["sub"],
         "role": user_data["role"]
     }
@@ -26,3 +27,5 @@ def require_supervisor(user=Depends(get_current_user)):
     if user["role"] != "supervisor":
         raise HTTPException(status_code=403, detail="Supervisors only")
     return user
+
+

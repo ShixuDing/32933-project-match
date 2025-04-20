@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 import re
+from typing import Optional
 
 class UserCreate(BaseModel):
     first_name: str
@@ -26,5 +27,16 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 class UserResponse(BaseModel):
+    id: int
     email: EmailStr
     role: str
+
+class UserCommon(BaseModel):
+    id: int
+    email: EmailStr
+    first_name: Optional[str]
+    last_name: Optional[str]
+    user_group_identifier: str  # role
+
+    class Config:
+        orm_mode = True

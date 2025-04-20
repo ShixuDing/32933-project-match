@@ -17,6 +17,7 @@ def login_user(db, email, password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     user_data = {
+        "id": user.id,
         "sub": user.email,
         "role": user.user_group_identifier
     }

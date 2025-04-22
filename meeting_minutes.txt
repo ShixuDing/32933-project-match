@@ -37,7 +37,7 @@ Week 8 to Week 11: From 4.7 to 5.4
 
 3. Allocated tasks:
 Shixu Ding: backend (User class, supervisor class, project class)
-Chen Yang: backend (Student class)
+Chen Yang: backend (AI)
 Yuxuan Wang: frontend
 Yonghao Lin: database
 

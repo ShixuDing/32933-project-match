@@ -1,0 +1,28 @@
+# Environment variables
+.env
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# IDE/Editor specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# SQLite Database (if used locally and not version controlled)
+*.db
+*.sqlite3
+
+# Operating system files
+.DS_Store
+Thumbs.db 

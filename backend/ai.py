@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
-import openai
+from openai import AsyncOpenAI, OpenAIError, AuthenticationError, APIConnectionError, RateLimitError, APIStatusError
 import uvicorn
 
 # Load environment variables
@@ -12,10 +12,16 @@ load_dotenv()
 
 # --- OpenAI/DeepSeek Configuration ---
 api_key = os.getenv('DEEPSEEK_API_KEY')
+api_base_url = os.getenv('DEEPSEEK_API_BASE', "https://api.deepseek.com/v1")
+
 if not api_key:
     print("Warning: DEEPSEEK_API_KEY environment variable not set!")
-openai.api_key = api_key
-openai.api_base = os.getenv('DEEPSEEK_API_BASE', "https://api.deepseek.com/v1")
+
+# Create the AsyncOpenAI client instance
+client = AsyncOpenAI(
+    api_key=api_key,
+    base_url=api_base_url
+)
 
 # --- FastAPI Application Instance ---
 app = FastAPI(
@@ -67,36 +73,32 @@ class RankResponse(BaseModel):
 # --- Core AI Logic Functions ---
 
 async def call_deepseek_api(messages: List[Dict[str, str]], expect_json: bool = True):
-    """Asynchronously calls the DeepSeek API for conversation."""
+    """Asynchronously calls the DeepSeek API for conversation using the new client style."""
     try:
-        if not openai.api_key:
-            print("Error: API Key not configured!")
+        if not client.api_key:
+            print("Error: API Key not configured in the client!")
             raise HTTPException(status_code=500, detail="AI service API Key not configured properly")
 
         print("\n" + "="*50)
-        print("Starting DeepSeek API call")
+        print("Starting DeepSeek API call (v1.0+ style)")
         print(f"Request Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
-        print(f"API Base: {openai.api_base}")
+        print(f"API Base URL used by client: {client.base_url}")
         print(f"Expect JSON: {expect_json}")
         print("-"*50)
 
-        # Note: Asynchronous calls with the openai library might require `async openai` or `httpx`.
-        # For simplicity, synchronous calls are kept here, but async is recommended in FastAPI.
-        # If performance issues arise, switch to an async HTTP client library (e.g., httpx or aiohttp).
+        response_format_param = {"type": "json_object"} if expect_json else {"type": "text"}
 
-        response_format = {"type": "json_object"} if expect_json else {"type": "text"}
-
-        # Using openai.ChatCompletion.create (consider migrating to newer client methods if available)
-        response = openai.ChatCompletion.create(
+        # Using the client instance for the API call
+        response = await client.chat.completions.create(
             model=os.getenv('DEEPSEEK_MODEL', "deepseek-chat"),
             messages=messages,
             temperature=0.3,
-            max_tokens=1500, # Increased token limit for potentially long project lists
+            max_tokens=1500,
             top_p=0.9,
             frequency_penalty=0.0,
             presence_penalty=0.0,
             stream=False,
-            response_format=response_format
+            response_format=response_format_param
         )
         content = response.choices[0].message.content
         print(f"API Raw Response Content: {content}")
@@ -112,18 +114,26 @@ async def call_deepseek_api(messages: List[Dict[str, str]], expect_json: bool = 
             except json.JSONDecodeError as json_e:
                 print(f"API Response JSON parsing error: {str(json_e)}")
                 print(f"Original response: {content}")
-                # Could implement more robust parsing or raise the error
                 raise HTTPException(status_code=500, detail=f"AI service returned invalid JSON format: {content}")
         else:
             return content
 
-    except openai.error.AuthenticationError as e:
-        print(f"API Authentication Error: {str(e)}")
-        raise HTTPException(status_code=401, detail=f"DeepSeek API Authentication Failed: {str(e)}")
-    except openai.error.OpenAIError as e: # Catch more general OpenAI errors
-        print(f"API Call Error: {str(e)}")
-        print("="*50 + "\n")
-        raise HTTPException(status_code=503, detail=f"Error calling DeepSeek API: {str(e)}")
+    # Updated exception handling for OpenAI v1.0+
+    except AuthenticationError as e:
+        print(f"DeepSeek API Authentication Error: {e.status_code} - {e.response} - {e.message}")
+        raise HTTPException(status_code=e.status_code or 401, detail=f"DeepSeek API Authentication Failed: {e.message}")
+    except APIConnectionError as e:
+        print(f"DeepSeek API Connection Error: {e}")
+        raise HTTPException(status_code=503, detail="Could not connect to DeepSeek API.")
+    except RateLimitError as e:
+        print(f"DeepSeek API Rate Limit Exceeded: {e.status_code} - {e.response} - {e.message}")
+        raise HTTPException(status_code=e.status_code or 429, detail="Rate limit exceeded for DeepSeek API.")
+    except APIStatusError as e: # Catch other API errors (like 4xx, 5xx)
+        print(f"DeepSeek API Status Error: {e.status_code} - {e.response} - {e.message}")
+        raise HTTPException(status_code=e.status_code or 500, detail=f"DeepSeek API returned an error: {e.message}")
+    except OpenAIError as e: # Catch any other OpenAI specific errors
+        print(f"OpenAI Library Error: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred within the OpenAI library: {type(e).__name__}")
     except Exception as e:
         print(f"Unknown error during DeepSeek API call: {str(e)}")
         print("="*50 + "\n")

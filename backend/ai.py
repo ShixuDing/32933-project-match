@@ -10,6 +10,29 @@ import uvicorn
 # Load environment variables
 load_dotenv()
 
+# --- How to Run This Service ---
+# 1. Ensure you have a .env file in the project root with your DEEPSEEK_API_KEY.
+#    Optionally, set DEEPSEEK_API_BASE, DEEPSEEK_MODEL, and PORT in the .env file.
+# 2. Make sure all dependencies from backend/requirements.txt are installed in your virtual environment.
+#    (Run `pip install -r backend/requirements.txt` in the activated venv)
+# 3. Run the service from the project root directory using uvicorn:
+#    uvicorn backend.ai:app --reload --port 8001 
+#    (Replace 8001 if you set a different PORT in .env or want to use another port)
+# 4. The service will be available at http://127.0.0.1:8001 (or your specified port).
+# 5. Access interactive API documentation at http://127.0.0.1:8001/docs
+#
+# --- Integration Notes for Other Backend Services ---
+# - This service provides two main endpoints: /analyze-requirements and /rank-projects.
+# - Call these endpoints using HTTP POST requests from your main backend application.
+# - The typical flow is:
+#   1. Main backend receives user input.
+#   2. Main backend fetches relevant student background info (major, interests) from the database.
+#   3. Main backend calls POST /analyze-requirements with user_input and student info.
+#   4. Main backend receives structured requirements (fields, keywords, features).
+#   5. Main backend fetches relevant projects from the database (including project_type, supervisor_expertise).
+#   6. Main backend calls POST /rank-projects with the structured requirements and the project list.
+#   7. Main backend receives the ranked list of projects and uses it for recommendations.
+#
 # --- OpenAI/DeepSeek Configuration ---
 api_key = os.getenv('DEEPSEEK_API_KEY')
 api_base_url = os.getenv('DEEPSEEK_API_BASE', "https://api.deepseek.com/v1")
@@ -32,20 +55,26 @@ app = FastAPI(
 
 # --- Pydantic Model Definitions ---
 
-class AnalyzeRequest(BaseModel):
-    user_input: str = Field(..., description="User's original requirement text", example="I want an AI project related to healthcare.")
+class AnalyzeStudentRequest(BaseModel):
+    user_input: str = Field(..., description="User's current requirement text", example="I want a project that uses machine learning.")
+    # Optional student background info
+    student_major: Optional[str] = Field(None, description="Student's major", example="Computer Science")
+    student_interests: Optional[str] = Field(None, description="Student's profile interest/research topic text", example="Interested in natural language processing and large language models.")
+    student_faculty: Optional[str] = Field(None, description="Student's faculty", example="Faculty of Engineering")
 
 class AnalyzeResponse(BaseModel):
-    fields: Optional[List[str]] = Field(None, description="List of matched project fields", example=["Artificial Intelligence", "Healthcare"])
-    keywords: Optional[List[str]] = Field(None, description="Extracted technical keywords", example=["Machine Learning", "Image Recognition"])
-    features: Optional[List[str]] = Field(None, description="Specific project features mentioned by the user", example=["Needs a deep learning model"])
+    fields: Optional[List[str]] = Field(None, description="List of matched project fields", example=["Artificial Intelligence", "NLP"])
+    keywords: Optional[List[str]] = Field(None, description="Extracted technical keywords", example=["Machine Learning", "LLM"])
+    features: Optional[List[str]] = Field(None, description="Specific project features mentioned by the user", example=["Needs data analysis"])
 
 class ProjectInput(BaseModel):
     id: Any = Field(..., description="Unique identifier for the project")
     name: str = Field(..., description="Name of the project")
     description: Optional[str] = Field(None, description="Description of the project")
-    field: Optional[str] = Field(None, description="Field the project belongs to")
-    # Add more project attributes as needed
+    field: Optional[str] = Field(None, description="General field the project belongs to (can be broad)")
+    project_type: Optional[str] = Field(None, description="Specific type or category of the project", example="Web Application")
+    # Added: List of expertise areas from associated supervisor(s)
+    supervisor_expertise: Optional[List[str]] = Field(None, description="List of expertise areas of the supervisor(s)", example=["Machine Learning", "Deep Learning"])
 
 class RequirementsInput(BaseModel):
     fields: Optional[List[str]] = Field(None, description="Fields from user requirements")
@@ -140,9 +169,11 @@ async def call_deepseek_api(messages: List[Dict[str, str]], expect_json: bool = 
         raise HTTPException(status_code=500, detail=f"Internal error processing AI request: {str(e)}")
 
 
-async def analyze_user_requirements_internal(user_input: str) -> Optional[Dict[str, Any]]:
-    """Analyzes user requirements, extracts keywords and fields (internal implementation)."""
+async def analyze_user_requirements_internal(request_data: AnalyzeStudentRequest) -> Optional[Dict[str, Any]]:
+    """Analyzes user requirements, considering student background, extracts keywords and fields (internal implementation)."""
+    user_input = request_data.user_input
     print(f"\nStarting user requirement analysis for: {user_input}")
+    print(f"Student Background: Major={request_data.student_major}, Interests='{request_data.student_interests}', Faculty={request_data.student_faculty}")
 
     # Simple keyword check to see if the user is just asking for a list of projects
     ask_keywords = ['what projects', 'which projects', 'all projects', 'show projects', 'list projects', 'view projects']
@@ -151,18 +182,21 @@ async def analyze_user_requirements_internal(user_input: str) -> Optional[Dict[s
         print("User might be asking for all projects, returning None (indicating no specific requirements extracted)")
         return None # Return None to indicate no specific requirements were extracted
 
-    messages = [
-        {
-            "role": "system",
-            "content": """#### Role
+    # Construct the system prompt incorporating background info
+    system_prompt = f"""#### Role
 - Assistant Name: Project Requirement Analysis Expert
-- Primary Task: Analyze student project requirements, extract key information, and match to predefined project fields.
+- Primary Task: Analyze student project requirements, extract key information, and match to potential project fields, considering the student's background.
+
+#### Student Background Context (Use this for better understanding)
+- Major: {request_data.student_major or 'Not Provided'}
+- Stated Interests: {request_data.student_interests or 'Not Provided'}
+- Faculty: {request_data.student_faculty or 'Not Provided'}
 
 #### Capabilities
-- Requirement Analysis: Accurately understand project interests and needs expressed by students.
-- Field Matching: Precisely match requirements to predefined project fields (if possible).
-- Keyword Extraction: Identify technical keywords within the requirements.
-- Feature Summarization: Extract explicitly stated project feature requirements.
+- Requirement Analysis: Accurately understand project interests and needs expressed in the `user_input`, using the student background for context.
+- Field Matching: Precisely match requirements to potential project fields (if possible).
+- Keyword Extraction: Identify technical keywords within the requirements (from input and background).
+- Feature Summarization: Extract explicitly stated project feature requirements from the `user_input`.
 
 #### Reference Project Fields (for reference only; prioritize matching user's text)
   - Healthcare
@@ -172,30 +206,42 @@ async def analyze_user_requirements_internal(user_input: str) -> Optional[Dict[s
   - Big Data
   - Cloud Computing
   - Cybersecurity
+  - Web Development
+  - Mobile Development
+  - Data Science
+  - NLP
+  - Computer Vision
 
 #### Output Format
 Must output valid JSON format. If specific requirements are analyzed, use the following format:
-{
-    "fields": ["Field1"],  // Array, 1-2 most relevant fields (if clearly inferable)
-    "keywords": ["Keyword1", "Keyword2"],  // Array, max 3 technical keywords
-    "features": ["Feature1"]  // Array, explicitly mentioned feature requirements
-}
+{{
+    "fields": ["Field1"],  // Array, 1-2 most relevant fields inferred from input and background
+    "keywords": ["Keyword1", "Keyword2"],  // Array, max 3-4 technical keywords from input and background
+    "features": ["Feature1"]  // Array, explicitly mentioned feature requirements from user_input
+}}
 If the user input cannot be analyzed for specific requirements, or is just small talk/greeting, output:
-{
+{{
     "fields": [],
     "keywords": [],
     "features": []
-}
+}}
 
 #### Matching Rules
-1. Fields: Try to extract or infer from user text, referencing the list above. Leave empty if uncertain.
-2. Keywords: Prioritize technical terms.
-3. Features: Only extract requirements explicitly stated by the user (e.g., specific tech stack, functionality).
-4. Brevity: Include only the most core requirement information."""
+1. Use student background to interpret the `user_input` more accurately.
+2. Fields: Infer 1-2 relevant fields based on combined info. Reference list is a guide.
+3. Keywords: Extract core technical terms from both `user_input` and relevant parts of `Stated Interests`.
+4. Features: ONLY extract features explicitly mentioned in the current `user_input`.
+5. Brevity: Include only the most core requirement information.
+"""
+
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
         },
         {
             "role": "user",
-            "content": user_input
+            "content": user_input # Only send the current user input here
         }
     ]
 
@@ -234,13 +280,15 @@ async def rank_projects_internal(requirements: Optional[Dict[str, Any]], project
         # Add null score and reasoning to each project
         return [{**p, 'score': None, 'reasoning': 'Not ranked due to missing requirements or empty list'} for p in projects]
 
-    # Prepare project information, including only necessary fields to reduce token usage
+    # Prepare project information, including new fields
     projects_for_api = [
         {
             "id": p.get("id"),
             "name": p.get("name"),
-            "description": p.get("description", ""), # Provide empty string if None
-            "field": p.get("field", "")
+            "description": p.get("description", ""),
+            "field": p.get("field", ""), # Keep general field if available
+            "project_type": p.get("project_type", ""), # Add project type
+            "supervisor_expertise": p.get("supervisor_expertise", []) # Add supervisor expertise
         } for p in projects
     ]
 
@@ -249,32 +297,34 @@ async def rank_projects_internal(requirements: Optional[Dict[str, Any]], project
         {
             "role": "system",
             "content": """#### Role
-- Assistant Name: Project Matching Expert
-- Primary Task: Score and rank the provided list of projects based on student requirements.
+- Assistant Name: Advanced Project Matching Expert
+- Primary Task: Score and rank the provided list of projects based on detailed student requirements and comprehensive project information.
 
 #### Capabilities
 - Requirement Understanding: Precisely understand student's field interests, technical keywords, and specific project features.
-- Project Analysis: Analyze each project's name, description, and field information.
+- Project Analysis: Analyze each project's name, description, general field, specific `project_type`, and the `supervisor_expertise`.
 - Relevance Scoring: Calculate the matching degree of each project to the student's requirements, providing a score from 0 to 10.
 - Ranking: Sort projects based on their scores in descending order.
 
-#### Scoring Rules (Total 10 points)
-1.  **Field Match (0-4 points)**:
-    *   Requirement field exactly matches project field: 4 pts
-    *   Requirement field highly relevant to project field (e.g., AI vs Machine Learning): 3 pts
-    *   Requirement field somewhat related (e.g., Big Data vs Data Visualization): 2 pts
-    *   No field specified in requirement, but project field relates to keywords/features: 1 pt
-    *   Completely unrelated: 0 pts
-2.  **Keyword Match (0-4 points)**:
-    *   Each core technical keyword from requirements explicitly found in project name/description: +1 pt/keyword (max 4 pts)
-    *   Related concepts of keywords reflected: +0.5 pts/keyword
-3.  **Feature Match (0-2 points)**:
-    *   Project explicitly meets feature requirements stated by the user (e.g., specific tech, function): +1 pt/feature (max 2 pts)
+#### Scoring Rules (Total 10 points) - Apply holistically
+1.  **Field/Type Match (0-4 points)**:
+    *   Evaluate how well the student's required `fields` match the project's `field` AND `project_type`.
+    *   Exact match on specific `project_type` gets high score (e.g., 4 pts).
+    *   Match on general `field` or related `project_type` gets moderate score (e.g., 2-3 pts).
+    *   Consider semantic similarity (e.g., 'AI' requirement vs 'Machine Learning' project type).
+2.  **Keyword Match (0-3 points)**:
+    *   Score based on how many required `keywords` are found in the project's `description` OR `supervisor_expertise`.
+    *   Explicit mention scores higher than related concepts.
+3.  **Supervisor Expertise Match (0-2 points)**:
+    *   Award points if the project's `supervisor_expertise` strongly aligns with the student's required `fields` or `keywords`.
+    *   This reflects the value of expert guidance in the student's area of interest.
+4.  **Feature Match (0-1 point)**:
+    *   Award points ONLY if the project explicitly meets specific `features` mentioned in the student's requirements (e.g., 'must use Python', 'needs database').
 
 #### Important Instructions
 - **Must** score and rank **every** project in the provided list.
 - **Must** output valid JSON format.
-- **Must** include `id`, `score`, and `reasoning` fields for each project. `reasoning` should briefly explain the score.
+- **Must** include `id`, `score`, and `reasoning` fields for each project. `reasoning` should be concise and justify the score based on the rules above (mention which aspects matched well or poorly).
 
 #### Output Format
 Must output a valid JSON object with a root key "ranked_projects". The value should be a list containing ALL input projects, each with id, score, and reasoning.
@@ -284,18 +334,18 @@ Must output a valid JSON object with a root key "ranked_projects". The value sho
         {
             "id": "proj_abc",
             "score": 9.5,
-            "reasoning": "Field match (4pts), keywords 'AI' & 'image recognition' match (2pts), feature 'deep learning' met (2pts), bonus (1.5pts)."
+            "reasoning": "Excellent match: Project type 'AI/ML' aligns perfectly (4pts). Keywords 'NLP', 'Python' found in description (2pts). Supervisor expertise in 'NLP' is a strong match (2pts). Feature 'needs dataset' met (1pt). Slight bonus for description clarity (0.5pts)."
         },
         {
             "id": "proj_def",
-            "score": 7.0,
-            "reasoning": "Related field (3pts), keyword 'Web dev' match (1pt), features partially met (1pt), overall (2pts)."
+            "score": 6.0,
+            "reasoning": "Good match: Related field 'Web Dev' (2pts). Keyword 'JavaScript' found (1pt). Supervisor expertise is less relevant (0.5pts). No specific features requested. Project description is clear (1pt)."
         },
         // ... include scores for all other projects ...
         {
             "id": "proj_xyz",
-            "score": 3.0,
-            "reasoning": "No field match (0pts), no keyword match (0pts), no feature match (0pts), base score (3pts)."
+            "score": 2.0,
+            "reasoning": "Poor match: Field 'Blockchain' doesn't align (0pts). No keywords match (0pts). Supervisor expertise not relevant (0pts). Basic score for being a project (2pts)."
         }
     ]
 }
@@ -363,25 +413,57 @@ Project List:
 
 # --- API Endpoints ---
 
-# Example usage comment:
-# To call this endpoint, send a POST request to /analyze-requirements
-# with a JSON body like: {"user_input": "I need a project about big data analysis"}
-# Example curl command:
+# --- Endpoint: /analyze-requirements --- 
+# Purpose: 
+#   Analyzes a student's natural language input, optionally considering their 
+#   background information (major, interests, faculty), to extract structured 
+#   project requirements (relevant fields, technical keywords, specific features).
+# Method: POST
+# URL: /analyze-requirements (e.g., http://127.0.0.1:8001/analyze-requirements)
+# Request Body (JSON): 
+#   - Requires an object matching the AnalyzeStudentRequest model.
+#   - `user_input` (string, required): The student's current text input describing their desired project.
+#   - `student_major` (string, optional): The student's major (e.g., "Computer Science").
+#   - `student_interests` (string, optional): Text describing the student's existing interests (from profile).
+#   - `student_faculty` (string, optional): The student's faculty.
+#   Example Request Body:
+#   {
+#     "user_input": "I want to work with large language models for text generation.",
+#     "student_major": "Artificial Intelligence",
+#     "student_interests": "Previously worked on chatbots and NLP tasks.",
+#     "student_faculty": "School of Informatics"
+#   }
+# Response Body (JSON on success - 200 OK):
+#   - Returns an object matching the AnalyzeResponse model.
+#   - `fields` (array[string], optional): List of 1-2 inferred relevant project fields.
+#   - `keywords` (array[string], optional): List of 3-4 extracted technical keywords.
+#   - `features` (array[string], optional): List of specific features explicitly mentioned in the user_input.
+#   - Note: If no specific requirements are found, returns empty lists, e.g., {"fields": [], "keywords": [], "features": []}
+#   Example Response Body:
+#   {
+#     "fields": ["Artificial Intelligence", "NLP"],
+#     "keywords": ["LLM", "Text Generation", "Chatbot"],
+#     "features": []
+#   }
+# Example curl:
 # curl -X POST "http://127.0.0.1:8001/analyze-requirements" \
 # -H "Content-Type: application/json" \
-# -d '{"user_input": "I am interested in web security and blockchain projects"}'
-@app.post("/analyze-requirements", response_model=AnalyzeResponse, summary="Analyze user requirement text")
-async def analyze_requirements(request: AnalyzeRequest):
+# -d '{"user_input": "I want to work with large language models for text generation.", "student_major": "Artificial Intelligence", "student_interests": "Previously worked on chatbots and NLP tasks."}'
+@app.post("/analyze-requirements", response_model=AnalyzeResponse, summary="Analyze user requirement text considering student background")
+async def analyze_requirements(request: AnalyzeStudentRequest):
     """
-    Receives user input text and calls the AI to analyze and extract key project requirement information.
+    Receives user input text and calls the AI to analyze and extract key project requirement information, considering student background.
 
     - **user_input**: Natural language text describing the user's project requirements.
+    - **student_major**: Student's major.
+    - **student_interests**: Student's profile interest/research topic text.
+    - **student_faculty**: Student's faculty.
 
     Returns the structured requirements including fields, keywords, and features.
     If the input doesn't contain specific requirements (e.g., greeting or asking for all projects),
     it will return a response with empty lists.
     """
-    analysis_result = await analyze_user_requirements_internal(request.user_input)
+    analysis_result = await analyze_user_requirements_internal(request)
 
     # If analysis_result is None (indicating no specific requirements or analysis failure),
     # return a default response with empty lists.
@@ -392,30 +474,71 @@ async def analyze_requirements(request: AnalyzeRequest):
     return AnalyzeResponse(**analysis_result)
 
 
-# Example usage comment:
-# To call this endpoint, send a POST request to /rank-projects
-# with a JSON body containing 'requirements' (output from /analyze-requirements, can be null)
-# and a 'projects' list (fetched from your database).
-# Example curl command:
+# --- Endpoint: /rank-projects ---
+# Purpose:
+#   Scores and ranks a provided list of projects based on structured student 
+#   requirements (output from /analyze-requirements) and detailed project info.
+# Method: POST
+# URL: /rank-projects (e.g., http://127.0.0.1:8001/rank-projects)
+# Request Body (JSON):
+#   - Requires an object matching the RankRequest model.
+#   - `requirements` (object, optional): The structured requirements object obtained from 
+#     /analyze-requirements. If null or omitted, projects might be returned unranked or 
+#     based on general relevance without specific scoring.
+#     - Contains `fields` (array[string]), `keywords` (array[string]), `features` (array[string]).
+#   - `projects` (array[object], required): A list of project objects to be ranked.
+#     Each project object should match the ProjectInput model:
+#     - `id` (any, required): Unique project identifier.
+#     - `name` (string, required): Project name.
+#     - `description` (string, optional): Project description.
+#     - `field` (string, optional): General project field.
+#     - `project_type` (string, optional): Specific project category/type.
+#     - `supervisor_expertise` (array[string], optional): List of expertise areas for the project's supervisor(s).
+#   Example Request Body:
+#   {
+#     "requirements": {"fields": ["AI", "NLP"], "keywords": ["Python", "Chatbot"], "features": []},
+#     "projects": [
+#       {"id": 1, "name": "Customer Service Chatbot", "description": "NLP based chatbot in Python", "field": "AI", "project_type": "AI/ML Application", "supervisor_expertise": ["Natural Language Processing", "Python"]},
+#       {"id": 2, "name": "Sales Data Dashboard", "description": "Visualize sales data using React", "field": "Web Development", "project_type": "Web Application", "supervisor_expertise": ["Frontend Development", "React"]}
+#     ]
+#   }
+# Response Body (JSON on success - 200 OK):
+#   - Returns an object matching the RankResponse model.
+#   - `ranked_projects` (array[object], required): A list of project objects, sorted by relevance score (descending).
+#     Each project object matches the RankedProjectOutput model:
+#     - `id` (any, required): Unique project identifier.
+#     - `score` (float, optional): The calculated relevance score (0-10). Null if ranking failed or requirements were null.
+#     - `reasoning` (string, optional): A brief explanation of how the score was derived.
+#     - `name`, `description`, `field`, `project_type`, `supervisor_expertise`: Original project details passed in the request.
+#   Example Response Body:
+#   {
+#     "ranked_projects": [
+#       {
+#         "id": 1,
+#         "score": 9.5,
+#         "reasoning": "Excellent match: Project type 'AI/ML Application' aligns (4pts). Keywords 'Python', 'Chatbot' found (2pts). Supervisor expertise 'NLP', 'Python' relevant (2pts). No specific features matched (0pts). Clear description (1.5pts).",
+#         "name": "Customer Service Chatbot",
+#         "description": "NLP based chatbot in Python",
+#         "field": "AI",
+#         "project_type": "AI/ML Application",
+#         "supervisor_expertise": ["Natural Language Processing", "Python"]
+#       },
+#       {
+#         "id": 2,
+#         "score": 3.0,
+#         "reasoning": "Poor match: Field/Type 'Web Application' doesn't align with 'AI/NLP' (0.5pts). No keywords match (0pts). Supervisor expertise not relevant (0pts). Clear description (1pt).",
+#         "name": "Sales Data Dashboard",
+#         "description": "Visualize sales data using React",
+#         "field": "Web Development",
+#         "project_type": "Web Application",
+#         "supervisor_expertise": ["Frontend Development", "React"]
+#       }
+#     ]
+#   }
+# Example curl:
 # curl -X POST "http://127.0.0.1:8001/rank-projects" \
 # -H "Content-Type: application/json" \
-# -d '{ 
-#       "requirements": {"fields": ["AI"], "keywords": ["NLP"], "features": []}, 
-#       "projects": [ 
-#         {"id": 1, "name": "Chatbot", "description": "NLP based chatbot", "field": "AI"}, 
-#         {"id": 2, "name": "Data Viz", "description": "Visualize sales data", "field": "Big Data"} 
-#       ]
-#     }'
-# Example with null requirements (returns projects, potentially unranked or default ranked):
-# curl -X POST "http://127.0.0.1:8001/rank-projects" \
-# -H "Content-Type: application/json" \
-# -d '{ 
-#       "requirements": null, 
-#       "projects": [ 
-#         {"id": 1, "name": "Chatbot", "description": "NLP based chatbot", "field": "AI"}, 
-#         {"id": 2, "name": "Data Viz", "description": "Visualize sales data", "field": "Big Data"} 
-#       ]
-#     }'
+# -d '{"requirements": {"fields": ["AI", "NLP"], "keywords": ["Python", "Chatbot"], "features": []}, "projects": [{"id": 1, "name": "Customer Service Chatbot", "description": "NLP based chatbot in Python", "field": "AI", "project_type": "AI/ML Application", "supervisor_expertise": ["Natural Language Processing", "Python"]}, {"id": 2, "name": "Sales Data Dashboard", "description": "Visualize sales data using React", "field": "Web Development", "project_type": "Web Application", "supervisor_expertise": ["Frontend Development", "React"]}]}'
 @app.post("/rank-projects", response_model=RankResponse, summary="Rank a list of projects based on requirements")
 async def rank_projects_endpoint(request: RankRequest):
     """
@@ -424,7 +547,7 @@ async def rank_projects_endpoint(request: RankRequest):
 
     - **requirements**: (Optional) Structured representation of user needs (from /analyze-requirements).
                       If null or empty, projects might be returned unranked or based on general AI understanding.
-    - **projects**: List of projects to be ranked. Each project should include id, name, description, field, etc.
+    - **projects**: List of projects to be ranked. Each project should include id, name, description, field, project_type, and supervisor_expertise.
 
     Returns the ranked list of projects, each including its ID, match score, and scoring reasoning.
     """
@@ -446,7 +569,9 @@ async def rank_projects_endpoint(request: RankRequest):
             "reasoning": proj_data.get("reasoning"),
             "name": proj_data.get("name", "Unknown Project"), # Default name if missing
             "description": proj_data.get("description"),
-            "field": proj_data.get("field")
+            "field": proj_data.get("field"),
+            "project_type": proj_data.get("project_type"),
+            "supervisor_expertise": proj_data.get("supervisor_expertise", [])
         }
         # Add stricter validation here if needed (e.g., check score range)
         if validated_data["id"] is not None: # Ensure ID exists before adding

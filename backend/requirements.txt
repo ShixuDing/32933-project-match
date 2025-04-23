@@ -1,7 +1,32 @@
-fastapi
-uvicorn
-sqlalchemy
-pydantic
-python-jose[cryptography]
-passlib[bcrypt]
-alembic
+# Core web framework
+fastapi==0.115.12
+
+# ASGI server (with standard extras like watchfiles for development)
+# Note: Version is for uvicorn core. Extras don't affect version pinning here.
+uvicorn[standard]==0.34.2
+
+# Database ORM
+SQLAlchemy==2.0.40
+
+# Data validation
+pydantic==2.11.3
+
+# Authentication (JWT)
+# Note: Version is for python-jose core. Extras don't affect version pinning here.
+python-jose[cryptography]==3.4.0
+
+# Authentication (Password Hashing)
+# Note: Version is for passlib core. Extras don't affect version pinning here.
+passlib[bcrypt]==1.7.4
+
+# Database migrations
+alembic==1.15.2
+
+# AI Service
+openai==1.75.0
+
+# Environment variable loading
+python-dotenv==1.1.0
+
+# NOTE: Add your specific database driver here if needed and pin its version,
+# e.g., psycopg2-binary==<version> for PostgreSQL or mysqlclient==<version> for MySQL.

@@ -1,19 +1,21 @@
-from models.user_base import UserBase
-from sqlalchemy import Column, String, Integer
+from sqlalchemy import Column, Integer, String
+from database import Base
 from sqlalchemy.orm import relationship
-from models.project import Project
-from models.group import StudentGroup
 
-class Supervisor(UserBase):
+class Supervisor(Base):
     __tablename__ = "supervisors"
 
-    expertise = Column(String(100))
-    faculty = Column(String(100))
-    quota = Column(Integer)
-    student_groups = relationship("StudentGroup", back_populates="supervisor", cascade="all, delete-orphan")
+    id = Column(Integer, primary_key=True, index=True)
+    first_name = Column(String(50))
+    last_name = Column(String(50))
+    email = Column(String(100), unique=True, index=True)
+    password = Column(String(100))
+    user_group_identifier = Column(String(20), default="supervisor")
 
-    projects = relationship("Project", back_populates="supervisor")
+    quota = Column(Integer, default=3)  
 
+    
+    groups = relationship("Group", back_populates="supervisor")
 
     def create_project(self):
         pass
@@ -28,4 +30,7 @@ class Supervisor(UserBase):
         pass
 
     def remove_agroup(self):
+        pass
+
+    def approve_or_reject_project(self):
         pass

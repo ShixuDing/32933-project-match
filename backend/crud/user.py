@@ -30,11 +30,11 @@ def create_user(db: Session, user: UserCreate):
     first = user.first_name.lower()
     last = user.last_name.lower()
 
-    # check student or supervisor
-    domain = "student.uts.edu.au" if "student" in user.email else "uts.edu.au"
+    domain = user.email.split('@')[-1]
+
     final_email = generate_unique_email(db, first, last, domain)
 
-    user_group = "student" if "student" in final_email else "supervisor"
+    user_group = user.user_group_identifier.lower()
 
     if user_group == "student":
         db_user = Student(
@@ -57,7 +57,6 @@ def create_user(db: Session, user: UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
-
 def get_user_by_email(db: Session, email: str):
     user = db.query(Supervisor).filter(Supervisor.email == email).first()
     if not user:

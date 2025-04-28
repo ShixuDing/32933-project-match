@@ -5,10 +5,13 @@ from crud import supervisor as supervisor_crud
 from crud.supervisor import update_project_for_supervisor, delete_project_for_supervisor, update_supervisor_info
 from models.supervisor import Supervisor
 from schemas.supervisor import ProjectCreate, ProjectOut, ProjectUpdate, SupervisorOut, SupervisorUpdate
-from dependencies.auth import require_supervisor
+from dependencies.auth import require_supervisor, get_current_user
 from models.project import Project
 from typing import List
 from schemas.user import UserResponse
+from schemas.project import ProjectStatusUpdate
+from crud.project import update_project_status
+from crud.supervisor import assign_group_to_supervisor, remove_group_from_supervisor
 
 router = APIRouter(
     prefix="/supervisors",
@@ -105,3 +108,54 @@ def get_my_profile(
     
 #     project = db.query(Project).filter(Project.id == group.project_id).first()
 #     return project
+@router.post("/projects/{project_id}/update_status")
+def update_project_status_api(
+    project_id: int,
+    status_data: ProjectStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != "supervisor":
+        raise HTTPException(status_code=403, detail="Only supervisors can approve/reject projects.")
+
+    if status_data.status not in ["Approved", "Rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status value.")
+
+    try:
+        project = update_project_status(db=db, project_id=project_id, status=status_data.status)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {"project_id": project.id, "new_status": project.status}
+
+@router.post("/assign_group/{group_id}")
+def assign_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != "supervisor":
+        raise HTTPException(status_code=403, detail="Only supervisors can assign groups.")
+
+    try:
+        group = assign_group_to_supervisor(db=db, supervisor_id=current_user["id"], group_id=group_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"message": f"Group {group.group_name} assigned to supervisor."}
+
+@router.post("/remove_group/{group_id}")
+def remove_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != "supervisor":
+        raise HTTPException(status_code=403, detail="Only supervisors can remove groups.")
+
+    try:
+        group = remove_group_from_supervisor(db=db, group_id=group_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"message": f"Group {group.group_name} removed from supervisor."}

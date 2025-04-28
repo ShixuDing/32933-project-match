@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     last_name: str
     email: EmailStr
     password: str
+    user_group_identifier: str
 
     @field_validator("email")
     @classmethod
@@ -18,6 +19,13 @@ class UserCreate(BaseModel):
         if not re.match(base_pattern, v.lower()):
             raise ValueError("Email must match: firstname.lastname@student.uts.edu.au or firstname.lastname@uts.edu.au")
         return v.lower()
+    
+    @field_validator('user_group_identifier')
+    def validate_role(cls, v):
+        allowed_roles = ['student', 'supervisor']
+        if v not in allowed_roles:
+            raise ValueError('Role must be "student" or "supervisor"')
+        return v
 
 class LoginRequest(BaseModel):
     email: str

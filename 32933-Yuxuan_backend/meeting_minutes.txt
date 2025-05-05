@@ -1,0 +1,48 @@
+Weekly Team Meeting Minutes
+
+Project Name: 32993 project match 
+Date: April 3, 2025
+Time: 21:30 to 21:47
+Location: [Online]
+Facilitator: [Shixu Ding]
+Note Taker: [Shixu Ding]
+Participants:
+
+[Chen Yang]
+
+[Yuxuan Wang]
+
+[Yonghao Lin]
+(Include all attendees)
+
+Agenda:
+Review of completed and pending tasks
+
+Roadblocks and support needed
+
+Plans for the upcoming week
+
+Miscellaneous / Open discussion
+
+Meeting Notes:
+1. Github repo created, everyone should clone the project to their local and create a new branch for themselves.
+
+2.  Plans for upcoming week
+Week 13: 5.12- 5.18 report due- submit report 30%, tutor demo 50%
+	we should write report
+Week12: 5.5-5.11 presentation due - submit ppt 20% 
+	prepare ppt(face to face presentation)
+Week 8 to Week 11: From 4.7 to 5.4
+	finish development
+
+3. Allocated tasks:
+Shixu Ding: backend (User class, supervisor class, project class)
+Chen Yang: backend (AI)
+Yuxuan Wang: frontend
+Yonghao Lin: database
+
+4. Roadblocks and support needed
+We should hold pair programming each week to work togegher and check if there are any problems
+We should submit work weekly to moniter each member's contribution.
+
+

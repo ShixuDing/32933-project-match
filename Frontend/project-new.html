@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Project</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>Create New Project</h1>
+
+  <form id="create-form">
+    <label>Title:<br>
+      <input type="text" id="title" required>
+    </label><br><br>
+
+    <label>Description:<br>
+      <textarea id="description" required></textarea>
+    </label><br><br>
+
+    <label>Research Field:<br>
+      <input type="text" id="research_field" required>
+    </label><br><br>
+
+    <label>Group or Individual:<br>
+      <select id="group_or_individual" required>
+        <option value="">--Select--</option>
+        <option value="group">Group</option>
+        <option value="individual">Individual</option>
+      </select>
+    </label><br><br>
+
+    <label>Start Time:<br>
+      <input type="datetime-local" id="project_start_time" required>
+    </label><br><br>
+
+    <label>End Time:<br>
+      <input type="datetime-local" id="project_end_time" required>
+    </label><br><br>
+
+    <button type="submit">Create</button>
+  </form>
+
+  <br>
+  <button onclick="window.location.href='projects.html'">← Back to Projects</button>
+
+  <script src="js/projects.js"></script>
+</body>
+</html>
+

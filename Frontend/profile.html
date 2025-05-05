@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Profile</title>
+
+  <!-- 页面内联样式，可选用外部 style.css -->
+  <style>
+    body {
+      background: #f0f2f5;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      width: 400px;
+      margin: 100px auto;
+      padding: 30px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 欢迎语样式 */
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+
+    .info {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+
+    .info p {
+      margin: 8px 0;
+    }
+
+    /* 登出按钮样式 */
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      margin-top: 25px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #d32f2f;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 页面主要内容区域 -->
+  <div class="container">
+    <h2 id="welcome">Welcome, </h2>
+
+    <div class="info">
+      <p><strong>Email:</strong> <span id="email">-</span></p>
+      <p><strong>Role:</strong> <span id="role">-</span></p>
+    </div>
+    
+    <div id="supervisor-actions" style="display: none; margin-top: 15px;">
+      <button style="background: #4CAF50;" onclick="window.location.href='projects.html'">
+        View My Projects
+      </button>
+    </div>
+
+    <!-- 添加在登出按钮上方 -->
+<button onclick="showEditForm()">Edit Info</button>
+
+<!-- 隐藏的编辑资料表单 -->
+<div id="edit-form-container" style="display: none; margin-top: 20px;">
+  <h3>Edit Your Info</h3>
+  <form id="edit-form">
+    <label>First Name:<br>
+      <input type="text" id="edit-first-name" required>
+    </label><br><br>
+
+    <label>Last Name:<br>
+      <input type="text" id="edit-last-name" required>
+    </label><br><br>
+
+    <button type="submit">Submit</button>
+  </form>
+</div>
+
+    <!-- 登出按钮，点击后会调用 JS 的 logout() -->
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <script src="js/profile.js"></script>
+</body>
+</html>

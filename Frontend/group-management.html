@@ -1,0 +1,67 @@
+<!-- group-management.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Group Management</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>Group Management</h1>
+
+  <div id="restricted" style="display: none;">
+    <label for="groupId">Group ID:</label>
+    <input type="text" id="groupId" />
+    <br><br>
+    <button onclick="assignGroup()">Assign Group</button>
+    <button onclick="removeGroup()">Remove Group</button>
+  </div>
+
+  <p id="message" style="color: red;"></p>
+  <button onclick="window.location.href='projects.html'">&larr; Back to Projects</button>
+
+  <script>
+    const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (!token || !user) {
+      alert("You must log in first.");
+      window.location.href = "index.html";
+    } else if (user.user_group_identifier !== "supervisor") {
+      document.getElementById("message").textContent = "Access denied: Only supervisors can manage groups.";
+    } else {
+      document.getElementById("restricted").style.display = "block";
+    }
+
+    function assignGroup() {
+      const groupId = document.getElementById("groupId").value.trim();
+      if (!groupId) return alert("Please enter a group ID.");
+
+      fetch(`http://127.0.0.1:8000/supervisors/assign_group/${groupId}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to assign group");
+          alert("✅ Group assigned!");
+        })
+        .catch(err => alert("❌ " + err.message));
+    }
+
+    function removeGroup() {
+      const groupId = document.getElementById("groupId").value.trim();
+      if (!groupId) return alert("Please enter a group ID.");
+
+      fetch(`http://127.0.0.1:8000/supervisors/remove_group/${groupId}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to remove group");
+          alert("✅ Group removed!");
+        })
+        .catch(err => alert("❌ " + err.message));
+    }
+  </script>
+</body>
+</html>

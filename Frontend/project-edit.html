@@ -1,0 +1,28 @@
+<!-- project-edit.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Project</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>Edit Project</h1>
+
+  <form id="edit-form">
+    <label>Title:<br>
+      <input type="text" id="title" required>
+    </label><br><br>
+
+    <label>Description:<br>
+      <textarea id="description" required></textarea>
+    </label><br><br>
+
+    <button type="submit">Update</button>
+  </form>
+
+  <button onclick="window.location.href='projects.html'">← Back to Projects</button>
+
+  <script src="js/projects.js"></script>
+</body>
+</html>

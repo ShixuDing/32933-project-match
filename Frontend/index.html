@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <style>
+    /* 页面整体背景和字体 */
+    body {
+      background: #f0f2f5;
+      font-family: Arial, sans-serif;
+    }
+
+    /* 登录框容器样式 */
+    .container {
+      width: 300px;
+      margin: 100px auto;
+      padding: 30px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0px 0px 10px #ccc;
+      text-align: center;
+    }
+
+    /* 输入框样式 */
+    input {
+      width: 90%;
+      padding: 10px;
+      margin-top: 8px;
+    }
+
+    /* 登录按钮样式 */
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1976D2;
+    }
+
+    a {
+      color: blue;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 登录表单 -->
+  <div class="container">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <!-- 用户输入邮箱和密码 -->
+      <input id="email" type="email" placeholder="Email" required><br>
+      <input id="password" type="password" placeholder="Password" required><br><br>
+
+      <!-- 提交按钮 -->
+      <button type="submit">Login</button>
+    </form>
+
+    <!-- 跳转到注册页的链接 -->
+    <p>Don't have an account? <a href="register.html">Register here</a>.</p>
+  </div>
+
+  <!-- 引用外部登录逻辑脚本 -->
+  <script src="js/auth.js"></script>
+</body>
+</html>
+
+
+
